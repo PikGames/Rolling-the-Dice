@@ -1,5 +1,8 @@
 'use strict';
-//Selecting Elements
+
+const socket = io("http://localhost:3000");
+
+
 const player0El = document.querySelector('.player--0');
 const player1El = document.querySelector('.player--1');
 const score0El = document.getElementById('score--0');
@@ -12,79 +15,68 @@ const newBtn = document.querySelector('.btn--new');
 const rollBtn = document.querySelector('.btn--roll');
 const holdBtn = document.querySelector('.btn--hold');
 
-let scores, currentScore, currentPlayer, playing;
+// UI RESET 
 
-//Starting Conditions
-const init = function () {
-  scores = [0, 0];
-  currentScore = 0;
-  currentPlayer = 0;
-  playing = true;
-
-  score0El.innerHTML = 0;
-  score1El.innerHTML = 0;
-  current0El.innerHTML = 0;
-  current1El.innerHTML = 0;
+const initUI = () => {
+  score0El.textContent = 0;
+  score1El.textContent = 0;
+  current0El.textContent = 0;
+  current1El.textContent = 0;
 
   diceEl.classList.add('hidden');
+
   player0El.classList.add('player--active');
   player1El.classList.remove('player--active');
+
   player0El.classList.remove('player--winner');
   player1El.classList.remove('player--winner');
-  document.getElementById('name--0').innerHTML = "PLAYER 1"
-  document.getElementById('name--1').innerHTML = "PLAYER 2"
-}
-init();
-const switchPlayer = function () {
-  document.getElementById(`current--${currentPlayer}`).innerHTML = 0;
-  currentScore = 0;
-  currentPlayer = currentPlayer === 0 ? 1 : 0;// if the current player = 0 it will switch to 1 and the oposite
-  console.log(`now it's player ${currentPlayer + 1} turn`);
-  player0El.classList.toggle('player--active');//toggle will add a class if it's not there and if it is it will remove it
-  player1El.classList.toggle('player--active');
-}
 
-//Rolling Dice Functionality
-rollBtn.addEventListener('click', function(){
-  if (playing){
-    //generate random dice number
-    const dice = Math.trunc(Math.random() * 6) + 1;
-    console.log(dice);
-    //showing the dice
-    diceEl.classList.remove('hidden');
-    diceEl.src = `dice-${dice}.png`;
-  
-    if(dice !== 1){
-      //add dice in current score
-      currentScore += dice;
-      document.getElementById(`current--${currentPlayer}`).innerHTML = currentScore;
-    } else {
-      //swicth to next player
-      switchPlayer()
-    }
+  document.getElementById('name--0').textContent = "PLAYER 1";
+  document.getElementById('name--1').textContent = "PLAYER 2";
+};
+
+initUI();
+
+// 🎲 Dice roll result
+socket.on("dice", (dice) => {
+  diceEl.classList.remove('hidden');
+  diceEl.src = `dice-${dice}.png`;
+});
+
+// Full game state
+socket.on("state", (state) => {
+  // Scores
+  score0El.textContent = state.scores[0];
+  score1El.textContent = state.scores[1];
+
+  // Current scores
+  current0El.textContent =
+    state.currentPlayer === 0 ? state.currentScore : 0;
+  current1El.textContent =
+    state.currentPlayer === 1 ? state.currentScore : 0;
+
+  // Active player UI
+  player0El.classList.toggle('player--active', state.currentPlayer === 0);
+  player1El.classList.toggle('player--active', state.currentPlayer === 1);
+
+  // Winner
+  if (!state.playing) {
+    const winner = document.querySelector(`.player--${state.currentPlayer}`);
+    winner.classList.add('player--winner');
+    document.getElementById(`name--${state.currentPlayer}`).textContent =
+      "The Winner";
   }
-})
+});
 
-//Holding Mechanism
-holdBtn.addEventListener('click', function(){
-  if(playing){
-    //add the current score to the active player's score
-    scores[currentPlayer] += currentScore;
-    document.getElementById(`score--${currentPlayer}`).innerHTML = scores[currentPlayer];
-    //checking if the players score is >= 100
-    if(scores[currentPlayer] >= 100){
-      //Finish the game
-      playing = false;
-      diceEl.classList.add('hidden');
-      
-      document.querySelector(`.player--${currentPlayer}`).classList.add('player--winner');
-      document.querySelector(`.player--${currentPlayer}`).classList.remove('player--active');
-      document.getElementById(`name--${currentPlayer}`).innerHTML = "The Winner"
-    } else {
-        switchPlayer();
-    }
-  }
-})
+rollBtn.addEventListener('click', () => {
+  socket.emit("rollDice");
+});
 
-//Resetting the game
-newBtn.addEventListener('click', init)
+holdBtn.addEventListener('click', () => {
+  socket.emit("hold");
+});
+
+newBtn.addEventListener('click', () => {
+  socket.emit("newGame");
+  initUI();
+});
