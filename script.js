@@ -1,6 +1,6 @@
 'use strict';
 
-const socket = io("https://Rolling-the-Dice-server.up.railway.app");
+const socket = io("https://rolling-the-dice-server-production.up.railway.app/");
 
 
 const player0El = document.querySelector('.player--0');
